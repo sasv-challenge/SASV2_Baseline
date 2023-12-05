@@ -40,7 +40,7 @@ def loadWAV(filename, max_frames, evalmode=True, num_eval=1):
     else:
         for asf in startframe:
             feats += [audio[int(asf):int(asf)+max_audio]]
-    feat = np.stack(feats,axis=0).astype(np.float)
+    feat = np.stack(feats,axis=0).astype(np.float32)
     return feat
 
 
@@ -120,7 +120,7 @@ class train_dataset_loader(Dataset):
         dictkeys = {key : ii for ii, key in enumerate(dictkeys)}
 
         # Parse the training list into file names and ID indices
-        self.data_list = []        
+        self.data_list = []
 
         self.data_label = []
         self.data_group = [] # 'speaker_type' (e.g., 'LA0039_A01')
@@ -128,15 +128,15 @@ class train_dataset_loader(Dataset):
         for idx, line in enumerate(lines):
             data = line.strip().split()
             filename = os.path.join(train_path, data[1])
-            self.data_list += [filename + '.wav']          
-            
+            self.data_list += [filename + '.flac']
+
             if data[4] == 'bonafide':
                 self.data_label += [dictkeys[data[0]]]
             else:
                 self.data_label += [dictkeys['spoof']]
-                
+
             self.data_group += [data[0] + '_' + data[3]]
-            
+
     def __getitem__(self, indices):
         feat = []
         for index in indices:

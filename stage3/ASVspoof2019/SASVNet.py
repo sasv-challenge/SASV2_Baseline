@@ -108,7 +108,7 @@ class ModelTrainer(object):
         files = []
         for idx1, spk in enumerate(spk_meta):
             for file in spk_meta[spk]:
-                files += [file + '.wav']
+                files += [file + '.flac']
 
             test_dataset = test_dataset_loader(files, eval_path, eval_frames=eval_frames, num_eval=num_eval, **kwargs)
             test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=num_thread, drop_last=False, sampler=None)
@@ -130,10 +130,10 @@ class ModelTrainer(object):
         tstart = time.time()
         with open(eval_list) as f:
             lines_eval = f.readlines()
-        files = [x.strip().split(' ')[1] + '.wav' for x in lines_eval]
+        files = [x.strip().split(' ')[1] + '.flac' for x in lines_eval]
         setfiles = list(set(files))
         setfiles.sort()
-        
+
         test_dataset = test_dataset_loader(setfiles, eval_path, eval_frames=eval_frames, num_eval=num_eval, **kwargs)
         test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=num_thread, drop_last=False, sampler=None)
 
@@ -145,7 +145,7 @@ class ModelTrainer(object):
             inp1 = data[0][0].cuda()
             with torch.no_grad():
                 ref_embed = self.__model__(inp1).detach().cpu()
-            embeds_tst[data[1][0][:-4]] = ref_embed
+            embeds_tst[data[1][0][:-5]] = ref_embed
             telapsed = time.time() - tstart
             if rank == 0:
                 sys.stdout.write("\r Reading {:d} of {:d}: {:.2f} Hz, embedding size {:d}      ".format(idx*gs, ds*gs, idx*gs/telapsed, ref_embed.size()[1]))

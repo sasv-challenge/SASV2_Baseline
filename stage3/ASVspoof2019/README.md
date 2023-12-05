@@ -51,9 +51,9 @@ CUDA_VISIBLE_DEVICES=0 python trainSASVNet.py \
         --num_class 41 \
         --save_path ./save/sasv_baseline_stage3 \
         --train_list ./protocols/ASVspoof2019.LA.cm.train_dev.trn.txt \
-        --test_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
+        --eval_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
         --train_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA \
-        --test_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/wav \
+        --eval_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/flac \
         --spk_meta_train ./spk_meta/spk_meta_trn.pk
         --spk_meta_eval ./spk_meta/spk_meta_eval.pk
         --musan_path /path/to/dataset/MUSAN/musan_split \
@@ -82,9 +82,9 @@ CUDA_VISIBLE_DEVICES=0 python trainSASVNet.py \
         --num_class 21 \
         --save_path ./save/sasv_baseline_stage3 \
         --train_list ./protocols/ASVspoof2019.LA.cm.train_dev.trn.txt \
-        --test_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
+        --eval_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
         --train_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA \
-        --test_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/wav \
+        --eval_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/flac \
         --spk_meta_train ./spk_meta/spk_meta_trn.pk
         --spk_meta_eval ./spk_meta/spk_meta_eval.pk
         --musan_path /path/to/dataset/MUSAN/musan_split \
@@ -101,8 +101,8 @@ CUDA_VISIBLE_DEVICES=0 python trainSASVNet.py \
         --eval \
         --eval_frames 0 \
         --num_eval 1 \
-        --test_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
-        --test_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/wav \
+        --eval_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
+        --eval_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/flac \
         --model SKA_TDNN \
         --initial_model /path/to/your_model/pretrained_weight.model
 ```

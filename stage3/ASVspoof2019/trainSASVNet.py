@@ -33,11 +33,11 @@ parser.add_argument('--seed',           type=int,   default=10,     help='Seed f
 ## Training details
 parser.add_argument('--test_interval',  type=int,   default=1,      help='Test and save every [test_interval] epochs')
 parser.add_argument('--max_epoch',      type=int,   default=100,    help='Maximum number of epochs')
-parser.add_argument('--trainfunc',      type=str,   default="",     help='Loss function')
+parser.add_argument('--trainfunc',      type=str,   default="aamsoftmax",     help='Loss function')
 
 ## Optimizer
-parser.add_argument('--optimizer',      type=str,   default="",     help='sgd, adam, adamW, or adamP')
-parser.add_argument('--scheduler',      type=str,   default="",     help='Learning rate scheduler')
+parser.add_argument('--optimizer',      type=str,   default="adam",     help='sgd, adam, adamW, or adamP')
+parser.add_argument('--scheduler',      type=str,   default="cosine_annealing_warmup_restarts",     help='Learning rate scheduler')
 parser.add_argument('--weight_decay',   type=float, default=1e-7,   help='Weight decay in the optimizer')
 parser.add_argument('--lr',             type=float, default=1e-4,   help='Initial learning rate')
 parser.add_argument('--lr_t0',          type=int,   default=8,      help='Cosine sched: First cycle step size')
@@ -54,7 +54,7 @@ parser.add_argument('--num_class',      type=int,   default=41,     help='Number
 
 ## Load and save
 parser.add_argument('--initial_model',  type=str,   default="",     help='Initial model weights')
-parser.add_argument('--save_path',      type=str,   default="",     help='Path for model and logs')
+parser.add_argument('--save_path',      type=str,   default="./exp",     help='Path for model and logs')
 
 ## Training and test data
 parser.add_argument('--train_list',     type=str,   default="",     help='Train list')
@@ -87,7 +87,7 @@ def main_worker(args):
     ## Load models
     s = SASVNet(**vars(args))
     s = WrappedModel(s).cuda()
-    
+
     it = 1
     SASV_EERs, SV_EERs, SPF_EERs = [], [], []
     ## Write args to scorefile
@@ -95,6 +95,41 @@ def main_worker(args):
     ## Print params
     pytorch_total_params = sum(p.numel() for p in s.module.__S__.parameters())
     print('Total parameters: {:.2f}M'.format(float(pytorch_total_params)/1024/1024))
+
+    trainer = ModelTrainer(s, **vars(args))
+
+    ## Load model weights
+    modelfiles = glob.glob('%s/model0*.model'%args.model_save_path)
+    modelfiles.sort()
+    if(args.initial_model != ""):
+        trainer.loadParameters(args.initial_model)
+        print("Model {} loaded!".format(args.initial_model))
+
+    elif len(modelfiles) >= 1:
+        trainer.loadParameters(modelfiles[-1])
+        print("Model {} loaded from previous state!".format(modelfiles[-1]))
+        it = int(os.path.splitext(os.path.basename(modelfiles[-1]))[0][5:]) + 1
+
+    ## Evaluation only
+    if args.eval == True:
+        print('Test list',args.eval_list)
+        sc, lab = trainer.evaluateFromList(**vars(args))
+
+        ## Save scores
+        if args.scoring == True:
+            np.save(f'{args.result_save_path}/predict_scores.npy', sc)
+            np.save(f'{args.result_save_path}/ground_truth.npy', lab)
+
+        sasv_eer, sv_eer, spf_eer = get_all_EERs(sc, lab)
+        msg = f"SASV-EER {sasv_eer:2.4f}, SV-EER {sv_eer:2.4f}, SPF-EER {spf_eer:2.4f}"
+        cur_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        print('\n', cur_time, msg)
+        with open(args.result_save_path + "/metrics", "a") as f_res:
+            f_res.write(cur_time + "\n")
+            f_res.write(msg)
+
+
+        return
 
     ## Initialise trainer and data loader
     train_dataset = train_dataset_loader(**vars(args))
@@ -108,40 +143,10 @@ def main_worker(args):
         worker_init_fn=worker_init_fn,
         drop_last=True,
     )
-    trainer = ModelTrainer(s, **vars(args))
 
-    ## Load model weights
-    modelfiles = glob.glob('%s/model0*.model'%args.model_save_path)
-    modelfiles.sort()
-    if(args.initial_model != ""):
-        trainer.loadParameters(args.initial_model)
-        print("Model {} loaded!".format(args.initial_model))
-        
-    elif len(modelfiles) >= 1:
-        trainer.loadParameters(modelfiles[-1])
-        print("Model {} loaded from previous state!".format(modelfiles[-1]))
-        it = int(os.path.splitext(os.path.basename(modelfiles[-1]))[0][5:]) + 1
-    
     ## Update learning rate
     for ii in range(1,it):
         trainer.__scheduler__.step()
-    
-    ## Evaluation only
-    if args.eval == True:
-        print('Test list',args.eval_list)
-        sc, lab = trainer.evaluateFromList(epoch=it, **vars(args))
-        sasv_eer, sv_eer, spf_eer = get_all_EERs(sc, lab)
-        print('\n',time.strftime("%Y-%m-%d %H:%M:%S"), "SASV-EER {:2.4f}".format(sasv_eer),"SV-EER {:2.4f}".format(sv_eer), "SPF-EER {:2.4f}".format(spf_eer))
-        np.save('score_ska-tdnn.npy', sc)
-        return
-
-    ## Save scores
-    if args.scoring == True:
-        it = int(args.initial_model.split('/')[-1].split('.')[0][5:])
-        sc, lab = trainer.evaluateFromList(epoch=it, **vars(args))
-        np.save('./score/' + args.initial_model.split('/')[-3] + '.npy', sc)
-        np.save('./score/ground_truth.npy', lab)
-        return
 
     ## Save training code and params
     pyfiles = glob.glob('./*.py')
@@ -155,7 +160,7 @@ def main_worker(args):
 
     ## Core training script
     for it in range(it,args.max_epoch+1):
-        
+
         ## Training
         train_sampler.set_epoch(it)
         loss, traineer, lr = trainer.train_network(train_loader, it)
@@ -168,8 +173,8 @@ def main_worker(args):
             sasv_eer, sv_eer, spf_eer = get_all_EERs(sc, lab)
             SASV_EERs += [sasv_eer]
             SV_EERs += [sv_eer]
-            SPF_EERs += [spf_eer]               
-            
+            SPF_EERs += [spf_eer]
+
             print('\n',time.strftime("%Y-%m-%d %H:%M:%S"), "Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, SASV_EER {:2.4f}, SV_EER {:2.4f}, SPF_EER {:2.4f}, BestSASV_EER {:2.4f}, BestSV_EER {:2.4f}, BestSPF_EER {:2.4f}".format(it, traineer, loss, lr, sasv_eer, sv_eer, spf_eer, min(SASV_EERs), min(SV_EERs), min(SPF_EERs)))
             scorefile.write("Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, SASV_EER {:2.4f}, SV_EER {:2.4f}, SPF_EER {:2.4f}, BestSASV_EER {:2.4f}, BestSV_EER {:2.4f}, BestSPF_EER {:2.4f}\n".format(it, traineer, loss, lr, sasv_eer, sv_eer, spf_eer, min(SASV_EERs), min(SV_EERs), min(SPF_EERs)))
             scorefile.flush()
@@ -180,7 +185,7 @@ def main_worker(args):
 
 
 def main():
-    
+
     args.model_save_path  = args.save_path+"/model"
     args.result_save_path = args.save_path+"/result"
 
