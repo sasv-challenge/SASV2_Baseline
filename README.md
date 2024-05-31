@@ -1,6 +1,21 @@
 # Towards single integrated spoofing-aware speaker verification embeddings
 <img src="img/overview.png" width="800">
 
+
+## `Get started`. Installation dependencies.
+
+`requirements.txt` is included in each stage directory (All of them are the same so you can use any of them).
+
+If you use the Anaconda virtual environment,
+```
+conda create -n sasv python=3.9 cudatoolkit=11.3
+conda activate sasv
+```
+Install all dependency packages,
+```
+pip3 install -r requirements.txt
+```
+
 ## `Stage 1`. Speaker classification-based Pre-training.
 
 In [Stage 1](https://github.com/sasv-challenge/ASVSpoof5-SASVBaseline/tree/main/stage1), the ability to discriminate between target and bona fide non-target speakers can be learned using the `VoxCeleb2` database which contains data collected from thousands of bona fide speakers. In this repository, we provide the pre-trained weights of the following models:
