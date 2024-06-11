@@ -188,7 +188,7 @@ def main_worker(args):
                 f_res.write(msg)
 
             print('\n',time.strftime("%Y-%m-%d %H:%M:%S"), "Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, a-DCF {:2.4f}, Best a-DCF {:2.4f}".format(it, traineer, loss, lr, metric['min_a_dcf'], min(a_dcfs)))
-            scorefile.write("Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, a-DCF {:2.4f}, Best a-DCF {:2.4f}".format(it, traineer, loss, lr, metric['min_a_dcf'], min(a_dcfs)))
+            scorefile.write("Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, a-DCF {:2.4f}, Best a-DCF {:2.4f}\n".format(it, traineer, loss, lr, metric['min_a_dcf'], min(a_dcfs)))
             scorefile.flush()
             trainer.saveParameters(args.model_save_path+"/model%09d.model"%it)
             print('')
