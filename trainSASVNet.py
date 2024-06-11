@@ -174,7 +174,7 @@ def main_worker(args):
 
             with open("tmp_scorefile", "w") as tmp_scorefile:
                 for _s, _l in zip(sc, lab):
-                    tmp_scorefile.write(f"s t {_s} {_l}\n")
+                    tmp_scorefile.write(f"s t {_s[0]} {_l}\n")
 
             metric = a_dcf.calculate_a_dcf("tmp_scorefile")
             os.remove("tmp_scorefile")
