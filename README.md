@@ -108,8 +108,8 @@ CUDA_VISIBLE_DEVICES=0 python trainSASVNet.py \
         --eval \
         --eval_frames 0 \
         --num_eval 1 \
-        --eval_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
-        --eval_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/flac \
+        --eval_list corpus/ASVspoof5.dev.trial.txt \
+        --eval_path corpus/flac_D \
         --model SKA_TDNN \
         --initial_model /path/to/your_model/pretrained_weight.model
 ```
