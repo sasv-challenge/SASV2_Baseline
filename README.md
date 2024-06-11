@@ -1,112 +1,148 @@
-# Towards single integrated spoofing-aware speaker verification embeddings
-<img src="img/overview.png" width="800">
+# Adapted version -- Baseline of the ASVspoof 5 challenge Track 2, SASV.
+- Adapted by Jee-weon Jung, Carnegie Mellon University.
 
+This version is an adaptation to be used as a baseline in the [ASVspoof 5 challenge](https://www.asvspoof.org), track 2, Spoofing-robust Automatic Speaker Verification (SASV).
+Following the first SASV challenge in Interspeech 2022, the second challenge has joined forces with the ASVspoof community and has became a track of the ASVspoof 5.
+Using the very first large-scale data for speech anti-spoofing and deepfake, we once again aim to facilitate the development of single End-to-End (E2E) models that can reject spoofed inputs on top of the conventional non-target (different speaker) inputs.
 
-## `Get started`. Installation dependencies.
+In this baseline, we closly follow the approach proposed in [Towards single integrated spoofing-aware speaker verification embeddings](https://www.isca-archive.org/interspeech_2023/mun23_interspeech.pdf), which was presented at Interspeech 2023.
+This adapted version trains a Deep Neural Network (DNN) that has two output layers, one for speaker identification (multi-class classification) and the other for anti-spoofing (bonafide/spoof classification).
+- Pre-trained checkpoints and diverse other proposed training schemes are available in the main branch of this repository for those who are further interested.
 
-`requirements.txt` is included in each stage directory (All of them are the same so you can use any of them).
+Please send an email to `jeeweonj@ieee.org` for questions related to this adapted version for ASVspoof 5 challenge SASV track.
 
-If you use the Anaconda virtual environment,
-```
-conda create -n sasv python=3.9 cudatoolkit=11.3
-conda activate sasv
-```
-Install all dependency packages,
-```
-pip3 install -r requirements.txt
-```
+## Prerequisites
 
-## `Stage 1`. Speaker classification-based Pre-training.
-
-In [Stage 1](https://github.com/sasv-challenge/ASVSpoof5-SASVBaseline/tree/main/stage1), the ability to discriminate between target and bona fide non-target speakers can be learned using the `VoxCeleb2` database which contains data collected from thousands of bona fide speakers. In this repository, we provide the pre-trained weights of the following models:
-
-* ECAPA-TDNN:    [ecapa_tdnn.model](https://drive.google.com/file/d/1wazmfXOP5jv4Ynn3SNYhNKJs2e_z86ue/view?usp=share_link) (64MB)
-* MFA_Conformer: [mfa_conformer.model](https://drive.google.com/file/d/1R8koiGMFzCRl0v8gPBYYSD21ZKOks9nm/view?usp=share_link) (89MB)
-* SKA-TDNN:      [ska_tdnn.model](https://drive.google.com/file/d/1buMtltChZxdQyBqQkUQwohgqV_vubGfU/view?usp=share_link) (123MB)
-
-| Model           | params       | SASV-EER (%)  | SV-EER (%)    | SPF-EER (%)  |
-| :---:           | :---:        | :---:         | :---:         | :---:        |
-| `ECAPA-TDNN`    | 16.7M        | 20.66         | 0.74          | 27.30        |
-| `MFA-Conformer` | 20.9M        | 20.22         | 0.41          | 26.52        |
-| `SKA-TDNN`      | 29.4M        | 16.74         | 0.38          | 22.38        |
-
-You can evaluate the pre-trained weights using the following commands:
+### Activate a conda environment
+- Not mandatory, but I recommend to initialize a conda envionment and match the development environment. This is because Deep Neural Network (DNN) models' results are not deterministic when trained multiple times. Here is the environment I used.
 ```bash
-cd stage3
+conda create --name {asvspoof5_sasv2}
+conda install -y conda "python=${3.9.19}"
+conda install pytorch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 pytorch-cuda=12.1 -c pytorch -c nvidia\n
+```
+- Afterward, install the packages via `pip install -r requirements.txt`.
 
-python trainSASVNet.py
-        --eval \
-        --test_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
-        --test_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/wav \
-        --model ECAPA_TDNN \
-        --initial_model /path/to/weight/ecapa_tdnn.model
+### Setting the corpus
+1. Download `release.zip` by registering to the ASVspoof 5 challenge phase 2.
+2. Add a symlink of your folder to this directory using below command.
+  - `ln -s /path/of/your/uncompressed/release.zip corpus`
 
-python trainSASVNet.py
-        --eval \
-        --test_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
-        --test_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/wav \
-        --model MFA_Conformer \
-        --initial_model /path/to/weight/mfa_conformer.model
-
-python trainSASVNet.py
-        --eval \
-        --test_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
-        --test_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/wav \
-        --model SKA_TDNN \
-        --initial_model /path/to/weight/ska_tdnn.model
+If you did it correctly, when you run `cd corpus; tree tree -I "*flac" ./`
+```bash
+./
+|-- ASVspoof5.dev.enroll.txt
+|-- ASVspoof5.dev.metadata.txt
+|-- ASVspoof5.dev.trial.txt
+|-- ASVspoof5.train.metadata.txt
+|-- flac_D (derived using `tar -xvf flac_D.tar`)
+|-- flac_D.tar
+|   |--  D_0000000001.flac
+|   |--  D_0000000002.flac
+|   `--  D_...........flac
+|-- flac_T ((derived using `tar -xvf flac_T.tar`))
+|   |--  T_0000000001.flac
+|   |--  T_0000000002.flac
+|   `--  T_...........flac
+|-- flac_T.tar
+|-- LICENSE.txt
+`-- README.txt
 ```
 
-## `Stage 2`.  Copy-synthesis Training.
-In [Stage 2](https://github.com/sasv-challenge/ASVSpoof5-SASVBaseline/tree/main/stage2), we augment the model with the ability to discriminate between bona fide and spoofed inputs by using large-scale data generated through an oracle speech synthesis system, referred to as copy synthesis.
-This repository has the copy-synthesis training using copy-synthesized data from `VoxCeleb2 dev` or `ASVspoof2019 LA train/train+dev`.
+### Data format
+- For the train set, we will use `ASVspoof5.train.metadata.txt`. There are six columns, where we will use `speeaker` and `spoofing` columns that inform who is speaking and whether it is a bonafide or spoofed.
+  - We will adopt a multitask learning where a DNN is trained to classify both (i) closed set speaker identification (multi-class classification) and (ii) anti-spoofing detection (bonafide/spoof binary classification)
 
+```
+speaker utterance gender codec attack spoofing 
+T_4850 T_0000000000 F - A05 spoof
+```
 
-## `Stage 3`. In-domain Fine-tuning.
-Even though training in Stages 1 and 2 learn to discriminate bona fide non-target and spoof non-target inputs, there is a remaining domain mismatch with the evaluation protocol. Furthermore, artefacts from the acoustic model have yet to be learned. Hence, in [Stage 3](https://github.com/sasv-challenge/ASVSpoof5-SASVBaseline/tree/main/stage3), we fine-tune the model using in-domain bona fide and spoofed data contained within the `ASVspoof2019 LA` dataset.
+- For the development set, we will use `ASVspoof5.dev.enroll.txt` and `ASVspoof5.dev.trial.txt`.
+  - `ASVspoof5.dev.enroll.txt` has the information on which utterances comprise the speaker model (i.e., target or claimed speaker).
+    - Example: `D_4660 D_A0000000316,D_A0000000725,D_A0000000343`
+      - `D4660` is the speaker model's name and `D_A0000000316,D_A0000000725,D_A0000000343` are the three utterances that comprise the speaker.
+  - `ASVspoof5.dev.trial.txt` is the evaluation protocol that denotes which speaker model to compare with which utterance and the ground truth (target/nontarget/spoof)
+    - Example: `D_0755 D_0000000022 spoof`
+    - The model is required to accept only the `target` and reject both `nontarget` and `spoof`.
 
-## `Summary`. Experimental results and pre-trained weights for several models.
-|    | Stage1                         | Stage2                       | Stage3                         | SASV-EER              | SASV-EER                  | SASV-EER                   | SASV-EER                       |
-|:--:| :---:                          | :---:                        | :---:                          | :---:                 | :---:                     | :---:                      | :---:                          |
-|    | ASV-based<br>Pre-training      | Copy-synthesis<br>Training   | In-domain<br>Fine-tuning       | `SKA-TDNN`<br>`train` | `SKA-TDNN`<br>`train+dev` | `MFA-Conformer`<br>`train` | `MFA-Conformer`<br>`train+dev` |
-|1   | -                              | -                            | `ASVspoof2019`<br>`(bna+spf)`  | [9.55](https://drive.google.com/file/d/1RFRj3IyR4MrfJ0TgikBD96k-fRtVeYoW/view?usp=sharing) | [5.94](https://drive.google.com/file/d/1xkoyIAggQkpfVhfdmxndUDxKFQZ0Kxpd/view?usp=sharing) | [11.47](https://drive.google.com/file/d/1rxpHaDdaLWyx96JQzNeKD6gHXOmlcY1I/view?usp=sharing) | [7.67](https://drive.google.com/file/d/15o5FmKeaYPElsDBf4-mq_0BobNxTfgew/view?usp=sharing) |
-|2   | `VoxCeleb2`<br>`(bna)`         | -                            | -                              | - | [16.74](https://drive.google.com/file/d/1buMtltChZxdQyBqQkUQwohgqV_vubGfU/view?usp=share_link) | - | [20.22](https://drive.google.com/file/d/1R8koiGMFzCRl0v8gPBYYSD21ZKOks9nm/view?usp=share_link) |
-|3   | `VoxCeleb2`<br>`(bna)`         | -                            | `ASVspoof2019`<br>`(bna+spf)`  | [2.67](https://drive.google.com/file/d/1GHv8_3ZSenvsLX22kVOvQhk7z9Naa_Ju/view?usp=sharing) | **[1.25](https://drive.google.com/file/d/1iclSQYOlthLSwMsSMn0bxQ3O3RBPPtfY/view?usp=sharing)** | [2.13](https://drive.google.com/file/d/1O4xzjNeal1cJctiR-ryGqOpCcwrhArz-/view?usp=sharing) | [1.51](https://drive.google.com/file/d/16MHbeVY8rUVcG_gLGIqnzEAIPJIAFarv/view?usp=sharing) |
-|4   | -                              | `VoxCeleb2`<br>`(bna+cs)`    | -                              | - | [13.11](https://drive.google.com/file/d/1bg2Nb7ud1jL604aBwbZ7avnJlYq3Bqfl/view?usp=sharing) | - | [14.27](https://drive.google.com/file/d/1PmUFxmrtwaYIP60-eOavjO9z7ssOIlMD/view?usp=sharing) |
-|5   | -                              | `VoxCeleb2`<br>`(bna+cs)`    | `ASVspoof2019`<br>`(bna+spf)`  | [2.47](https://drive.google.com/file/d/1iloOkHMydNQdEhdw6LgpTNTXJ4eDm_Vd/view?usp=sharing) | [1.93](https://drive.google.com/file/d/1uDpM2Ax_ZdtP10gzY3tDYYRnXJaLjSLQ/view?usp=sharing) | [1.91](https://drive.google.com/file/d/1WsybxklRpC_GxBwB-sBUdrrdiQhqOCDq/view?usp=sharing) | [1.35](https://drive.google.com/file/d/13kxbdBKrfOUmjbTmaeoJ-UE3yix0FqLn/view?usp=sharing) |
-|6   | `VoxCeleb2`<br>`(bna)`         | `VoxCeleb2`<br>`(bna+cs)`    | -                              | - | [10.24](https://drive.google.com/file/d/10h_6Pdj3uFNkaAoqqaowARVYTandu-4K/view?usp=sharing) | - | [12.33](https://drive.google.com/file/d/1wTY40HqqcEAQctxMlc-f3_whwafS1roI/view?usp=sharing) |
-|7   | `VoxCeleb2`<br>`(bna)`         | `VoxCeleb2`<br>`(bna+cs)`    | `ASVspoof2019`<br>`(bna+spf)`  | **[1.83](https://drive.google.com/file/d/1mH17hznSCLp1puQ3yu8TTv3e5P_q-C95/view?usp=sharing)** | [1.56](https://drive.google.com/file/d/1L8YwLMtcBT1TLm1TuqY5_HWgRhN9HvSu/view?usp=sharing) | **[1.19](https://drive.google.com/file/d/1tfnU3lS4LAdR2BJ2Ffz99h5XGqufrxOx/view?usp=sharing)** | **[1.06](https://drive.google.com/file/d/1zrkwidxymAGm7e6NEyMbsNhqAMkR6e3-/view?usp=sharing)** |
-|8   | -                              | `ASVspoof2019`<br>`(bna+cs)` | -                              | [13.10](https://drive.google.com/file/d/1N1QMw3ZXHSLAtTFT2eHyKBNwBRLzNrev/view?usp=sharing) | [10.49](https://drive.google.com/file/d/1vk3vnLp7YzuI_axBei6V5Bo4_Eit4pqf/view?usp=sharing) | [13.63](https://drive.google.com/file/d/1WEkHbZFWjZWdTy1vGIZcKa-DZhFDdpTj/view?usp=sharing) | [12.48](https://drive.google.com/file/d/1jufUxG9LxSVEr-yfC_NoZuXu_sn6R26G/view?usp=sharing) |
-|9   | -                              | `ASVspoof2019`<br>`(bna+cs)` | `ASVspoof2019`<br>`(bna+spf)`  | [9.57](https://drive.google.com/file/d/1q_bLYCJ4P2AeRsFZP3gtwy-_Yr9JaNXf/view?usp=sharing) | [6.17](https://drive.google.com/file/d/1FYdJ0PiIsdughZvxY2L1Zt1C6BUb7amc/view?usp=sharing) | [13.46]() | [10.11](https://drive.google.com/file/d/1Xkoun51C7OHMsWYNLjxbCtaR0TAeB4VX/view?usp=sharing) |
-|10  | `VoxCeleb2`<br>`(bna)`         | `ASVspoof2019`<br>`(bna+cs)` | -                              | [5.62](https://drive.google.com/file/d/19yi9XieL152KzixYURBOiC_3tYTtcLQ-/view?usp=sharing) | [4.93](https://drive.google.com/file/d/1a4FDiTqL3gYVzlBp-332qJ6FqnzI5Nx9/view?usp=sharing) | [9.31](https://drive.google.com/file/d/1PaJi31EN8ZDqwr5Ug3XjxkkxJf_Q8ACy/view?usp=sharing) | [8.32](https://drive.google.com/file/d/1HxQJ4D9SGSRBXlKMYbUC6769EpGYOWO_/view?usp=sharing) |
-|11  | `VoxCeleb2`<br>`(bna)`         | `ASVspoof2019`<br>`(bna+cs)` | `ASVspoof2019`<br>`(bna+spf)`  | [2.48](https://drive.google.com/file/d/1OBToHqE2kVuzv77zbCZie3tpDxpxh7A0/view?usp=sharing) | [1.44](https://drive.google.com/file/d/1q7BuiR1MM6xGXWJiaKSJiuFY8eWKBdi0/view?usp=sharing) | [2.72](https://drive.google.com/file/d/186AvkLm3Aws6ZwAOvrZKa-E-YTBiPaiP/view?usp=sharing) | [1.76](https://drive.google.com/file/d/1_M2-QZrhRPHQQkye-UNr0GeV8Pc5DbU3/view?usp=sharing) |
+## Models
+This adaptation employs [SKA-TDNN](https://ieeexplore.ieee.org/iel7/10022052/10022330/10023305.pdf). You can also select other models implemented in the main branch (or your own model) using the `--model` option:
 
-You can download each pre-trained weight from the above links:
+## Training
+Train using the command below.
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python trainSASVNet.py \
+  --max_frames 400 \
+  --num_spk 400 \
+  --num_utt 2 \
+  --batch_size 40 \
+  --trainfunc sasv_e2e_v1 \
+  --optimizer adamW \
+  --scheduler cosine_annealing_warmup_restarts \
+  --lr_t0 8 \
+  --lr_tmul 1.0 \
+  --lr_max 1e-4 \
+  --lr_min 0 \
+  --lr_wstep 0 \
+  --lr_gamma 0.8 \
+  --margin 0.2 \
+  --scale 30 \
+  --num_class 401 \
+  --save_path exp/sasv_baseline \
+  --train_list corpus/ASVspoof5.train.metadata.txt \
+  --eval_list corpus/ASVspoof5.dev.trial.txt \
+  --train_path corpus/flac_T \
+  --eval_path corpus/flac_D \
+  --spk_meta_train spk_meta/spk_meta_trn.pk \
+  --spk_meta_eval spk_meta/spk_meta_dev.pk \
+  --musan_path /path/to/dataset/MUSAN/musan_split \
+  --rir_path /path/to/dataset/RIRS_NOISES/simulated_rirs \
+  --model SKA_TDNN
+```
+
+## Evaluation
+You can evaluate your checkpoint of a model using:
+```bash
+CUDA_VISIBLE_DEVICES=0 python trainSASVNet.py \
+        --eval \
+        --eval_frames 0 \
+        --num_eval 1 \
+        --eval_list ./protocols/ASVspoof2019.LA.asv.eval.gi.trl.txt \
+        --eval_path /path/to/dataset/ASVSpoof/ASVSpoof2019/LA/ASVspoof2019_LA_eval/flac \
+        --model SKA_TDNN \
+        --initial_model /path/to/your_model/pretrained_weight.model
+```
+
+### Metric
+We use the [Agnostic Detection Cost Function (a-DCF)](https://arxiv.org/abs/2403.01355) as the main metric, the primary metric used in the challenge to rank the submissions.
 
 ## Citation
-If you utilize this repository, please cite the following paper,
-```
-@inproceedings{chung2020in,
-  title={In defence of metric learning for speaker recognition},
-  author={Chung, Joon Son and Huh, Jaesung and Mun, Seongkyu and Lee, Minjae and Heo, Hee Soo and Choe, Soyeon and Ham, Chiheon and Jung, Sunghwan and Lee, Bong-Jin and Han, Icksang},
-  booktitle={Proc. Interspeech},
-  year={2020}
-}
-```
+If you utilize this repository, please cite the following papers,
 
-```
-@inproceedings{jung2022pushing,
-  title={Pushing the limits of raw waveform speaker recognition},
-  author={Jung, Jee-weon and Kim, You Jin and Heo, Hee-Soo and Lee, Bong-Jin and Kwon, Youngki and Chung, Joon Son},
-  booktitle={Proc. Interspeech},
-  year={2022}
-}
-```
-
-```
+```bibtex
 @inproceedings{mun2022frequency,
   title={Frequency and Multi-Scale Selective Kernel Attention for Speaker Verification},
   author={Mun, Sung Hwan and Jung, Jee-weon and Han, Min Hyun and Kim, Nam Soo},
   booktitle={Proc. IEEE SLT},
   year={2022}
+}
+@inproceedings{mun2023towards
+  title={Towards single integrated spoofing-aware speaker verification embeddings},
+  author={Mun, Sung Hwan and Shim, Hye-jin and Tak, Hemlata and Wang, Xin and Liu, Xuechen and Sahidullah, Md and Jeong, Myeonghun and Han, Min Hyun and Todisco, Massimiliano and Lee, Kong Aik and others},
+  booktitle={Proc. Interspeech},
+  year={2023}
+}
+@inproceedings{shim2024an
+  title={a-DCF: an architecture agnostic metric with application to spoofing-robust speaker verification},
+  author={Shim, Hye-jin and Jung, Jee-weon and Kinnunen, Tomi and Evans, Nicholas and Bonastre, Jean-Francois and Lapidot, Itshak},
+  booktitle={Proc. Speaker Odyssey},
+  year={2024}
+}
+@techreport{delgado2024asvspoof,
+  title={ASVspoof 5 Evaluation Plan},
+  author={Delgado, H{\'e}ctor and Evans, Nicholas and Jung, Jee-weon and Kinnunen, Tomi and Kukanov, Ivan and Lee, Kong Aik and Liu, Xuechen and Shim, Hye-jin and Sahidullah, Md and Tak, Hemlata and others},
+  year={2024},
+  url={https://www.asvspoof.org/file/ASVspoof5___Evaluation_Plan_Phase2.pdf},
 }
 ```
