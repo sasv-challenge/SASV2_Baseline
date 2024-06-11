@@ -66,8 +66,6 @@ class ModelTrainer(object):
         tstart = time.time()
 
         for data, data_label in loader:
-            print(f"\n{idx}, {data.size()}\n")
-            print(f"{data_label.size()}\n")
 
             self.__model__.zero_grad()
             data = data.transpose(1,0)
