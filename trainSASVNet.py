@@ -160,6 +160,7 @@ def main_worker(args):
         f.write('%s'%args)
 
     ## Core training script
+    a_dcfs = []
     for it in range(it,args.max_epoch+1):
 
         ## Training
@@ -171,13 +172,23 @@ def main_worker(args):
         if it % args.test_interval == 0:
             sc, lab = trainer.evaluateFromList(epoch=it, **vars(args))
 
-            sasv_eer, sv_eer, spf_eer = get_all_EERs(sc, lab)
-            SASV_EERs += [sasv_eer]
-            SV_EERs += [sv_eer]
-            SPF_EERs += [spf_eer]
+            with open("tmp_scorefile", "w") as tmp_scorefile:
+                for _s, _l in zip(sc, lab):
+                    tmp_scorefile.write(f"s t {_s} {_l}\n")
 
-            print('\n',time.strftime("%Y-%m-%d %H:%M:%S"), "Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, SASV_EER {:2.4f}, SV_EER {:2.4f}, SPF_EER {:2.4f}, BestSASV_EER {:2.4f}, BestSV_EER {:2.4f}, BestSPF_EER {:2.4f}".format(it, traineer, loss, lr, sasv_eer, sv_eer, spf_eer, min(SASV_EERs), min(SV_EERs), min(SPF_EERs)))
-            scorefile.write("Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, SASV_EER {:2.4f}, SV_EER {:2.4f}, SPF_EER {:2.4f}, BestSASV_EER {:2.4f}, BestSV_EER {:2.4f}, BestSPF_EER {:2.4f}\n".format(it, traineer, loss, lr, sasv_eer, sv_eer, spf_eer, min(SASV_EERs), min(SV_EERs), min(SPF_EERs)))
+            metric = a_dcf.calculate_a_dcf("tmp_scorefile")
+            os.remove("tmp_scorefile")
+            a_dcfs.append(metric['min_a_dcf'])
+
+            msg = f"a-DCF {metric['min_a_dcf']:2.4f}, threshold: {metric['min_a_dcf_thresh']:2.4f}"
+            cur_time = time.strftime("%Y-%m-%d %H:%M:%S")
+            print('\n', cur_time, msg)
+            with open(args.result_save_path + "/metrics", "a") as f_res:
+                f_res.write(cur_time + "\n")
+                f_res.write(msg)
+
+            print('\n',time.strftime("%Y-%m-%d %H:%M:%S"), "Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, a-DCF {:2.4f}, Best a-DCF {:2.4f}".format(it, traineer, loss, lr, metric['min_a_dcf'], min(a_dcfs)))
+            scorefile.write("Epoch {:d}, ACC {:2.2f}, TLOSS {:f}, LR {:2.8f}, a-DCF {:2.4f}, Best a-DCF {:2.4f}".format(it, traineer, loss, lr, metric['min_a_dcf'], min(a_dcfs)))
             scorefile.flush()
             trainer.saveParameters(args.model_save_path+"/model%09d.model"%it)
             print('')
