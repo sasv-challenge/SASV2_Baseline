@@ -79,6 +79,7 @@ parser.add_argument('--eca_s',          type=int,   default=8,      help='ECAPA-
 ## Evaluation types
 parser.add_argument('--eval',           dest='eval', action='store_true', help='Eval only')
 parser.add_argument('--scoring',        dest='scoring', action='store_true', help='Scoring')
+parser.add_argument('--enroll_list',      type=str,   default="corpus/ASVspoof5.dev.enroll.txt",     help='Evaluation enroll list')
 
 args = parser.parse_args()
 
@@ -110,6 +111,21 @@ def main_worker(args):
         print("Model {} loaded from previous state!".format(modelfiles[-1]))
         it = int(os.path.splitext(os.path.basename(modelfiles[-1]))[0][5:]) + 1
 
+    ## Scoring only
+    if args.scoring == True:
+        print('Test list',args.eval_list)
+        sc = trainer.evaluateFromList(**vars(args))
+
+        savescore_file=os.path.join(args.result_save_path,f"{it}_scorefile")
+        with open(savescore_file, "w") as tmp_scorefile:
+            tmp_scorefile.write("\t-\t")   
+            for _s in sc:
+                tmp_scorefile.write(f"s {_s}\n")   
+
+        msg = f"Complete scoring. save at " + savescore_file
+        cur_time = time.strftime("%Y-%m-%d %H:%M:%S")
+        print('\n', cur_time, msg)
+        return
     ## Evaluation only
     if args.eval == True:
         print('Test list',args.eval_list)

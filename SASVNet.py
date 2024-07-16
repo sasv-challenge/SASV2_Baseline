@@ -98,7 +98,7 @@ class ModelTrainer(object):
 
         ## Enroll (speaker model) loader ##
         spk_meta = {}
-        meta = np.loadtxt('corpus/ASVspoof5.dev.enroll.txt', str)
+        meta = np.loadtxt(kwargs["enroll_list"], str)
         for i, spk in enumerate(meta[:,0]):
             spk_meta[spk] = meta[i][1].split(',')
 
@@ -170,14 +170,18 @@ class ModelTrainer(object):
                 score = F.cosine_similarity(enr, tst)
 
                 all_scores.append(score.detach().cpu().numpy())
-                all_labels.append(data[2])
+                if (len(data) == 3): #kwargs["eval"]):
+                    all_labels.append(data[2])
 
                 telapsed = time.time() - tstart
 
                 sys.stdout.write("\r Computing {:d} of {:d}: {:.2f} Hz      ".format(idx, len(lines_eval), idx/telapsed))
                 sys.stdout.flush()
 
-        return (all_scores, all_labels)
+        if (kwargs["scoring"]):
+            return all_scores
+        else:
+            return (all_scores, all_labels)
 
     def saveParameters(self, path):
         torch.save(self.__model__.module.state_dict(), path)
