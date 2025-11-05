@@ -19,15 +19,15 @@ def worker_init_fn(worker_id):
     np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 def loadWAV(filename, max_frames, evalmode=True, num_eval=1):
-    
+
     # Maximum audio length
     max_audio = max_frames * 160
-    
+
     # Read wav file and convert to torch tensor
     audio, sample_rate = soundfile.read(filename)
     audiosize = audio.shape[0]
     if audiosize <= max_audio:
-        shortage = max_audio - audiosize + 1 
+        shortage = max_audio - audiosize + 1
         audio = np.pad(audio, (0, shortage), 'wrap')
         audiosize = audio.shape[0]
     if evalmode:
@@ -53,7 +53,7 @@ class AugmentWAV(object):
         self.noisesnr = {'noise':[0, 15], 'speech':[13, 20], 'music':[5, 15]}
         self.numnoise = {'noise':[1, 1], 'speech':[3, 7], 'music':[1, 1]}
         self.noiselist = {}
-        
+
         augment_files = glob.glob(os.path.join(musan_path,'*/*/*/*.wav'))
         for file in augment_files:
             if not file.split('/')[-4] in self.noiselist:
@@ -62,7 +62,7 @@ class AugmentWAV(object):
 
         self.rir_files = glob.glob(os.path.join(rir_path,'*/*/*.wav'))
         self.perturb_prob = 1.0
-        self.speeds = [95, 105] 
+        self.speeds = [95, 105]
         self.sample_rate = 16000
         self.resamplers = []
         for speed in self.speeds:
@@ -73,14 +73,14 @@ class AugmentWAV(object):
             self.resamplers += [Resample(**config)]
 
     def additive_noise(self, noisecat, audio):
-        clean_db = 10 * np.log10(np.mean(audio**2) + 1e-4) 
+        clean_db = 10 * np.log10(np.mean(audio**2) + 1e-4)
         numnoise = self.numnoise[noisecat]
         noiselist = random.sample(self.noiselist[noisecat], random.randint(numnoise[0], numnoise[1]))
         noises = []
         for noise in noiselist:
             noiseaudio = loadWAV(noise, self.max_frames, evalmode=False)
             noise_snr = random.uniform(self.noisesnr[noisecat][0], self.noisesnr[noisecat][1])
-            noise_db = 10 * np.log10(np.mean(noiseaudio[0]**2) + 1e-4) 
+            noise_db = 10 * np.log10(np.mean(noiseaudio[0]**2) + 1e-4)
             noises += [np.sqrt(10**((clean_db - noise_db - noise_snr) / 10)) * noiseaudio]
         return np.sum(np.concatenate(noises,axis=0), axis=0,keepdims=True) + audio
 
@@ -113,7 +113,7 @@ class train_dataset_loader(Dataset):
             lines = dataset_file.readlines()
 
         # Make a dictionary of ID names and ID indices
-        dictkeys = list(set([x.split()[0] for x in lines]))
+        dictkeys = list(set([x.split(",")[1] for x in lines]))
         dictkeys += ['spoof']
         dictkeys.sort()
         dictkeys = {key : ii for ii, key in enumerate(dictkeys)}
@@ -124,17 +124,18 @@ class train_dataset_loader(Dataset):
         self.data_label = []
         self.data_group = [] # 'speaker_type' (e.g., 'LA0039_A01')
 
-        for idx, line in enumerate(lines):
-            data = line.strip().split()
-            filename = os.path.join(train_path, data[1])
-            self.data_list += [filename + '.flac']
 
-            if data[5] == 'bonafide':
-                self.data_label += [dictkeys[data[0]]]
+        for idx, line in enumerate(lines):
+            data = line.strip().split(",")
+            filename = os.path.join(train_path, data[0])
+            self.data_list += [filename]
+
+            if data[2] == 'a00':
+                self.data_label += [dictkeys[data[1]]]
             else:
                 self.data_label += [dictkeys['spoof']]
 
-            self.data_group += [data[0] + '_' + data[4]]
+            self.data_group += [data[1] + '_' + data[2]]
 
     def __getitem__(self, indices):
         feat = []
@@ -175,10 +176,10 @@ class test_dataset_loader(Dataset):
         self.test_path = test_path
         self.test_list = test_list
         self.test_label = label
-        
+
     def __getitem__(self, index):
         audio = loadWAV(os.path.join(self.test_path, self.test_list[index]), self.max_frames, evalmode=True, num_eval=self.num_eval)
-        if self.test_label!=False: 
+        if self.test_label!= False:
             return torch.FloatTensor(audio), self.test_list[index], self.test_label[index]
         else:
             return torch.FloatTensor(audio), self.test_list[index]
@@ -188,7 +189,7 @@ class test_dataset_loader(Dataset):
 
 
 class train_dataset_sampler(torch.utils.data.Sampler):
-    def __init__(self, data_source, num_utt, max_seg_per_spk, num_spk, batch_size, seed, **kwargs):       
+    def __init__(self, data_source, num_utt, max_seg_per_spk, num_spk, batch_size, seed, **kwargs):
         self.data_group = data_source.data_group
         self.num_utt = num_utt
         self.max_seg_per_spk = max_seg_per_spk
@@ -206,12 +207,12 @@ class train_dataset_sampler(torch.utils.data.Sampler):
 
         # Sort into dictionary of file indices for each ID
         for index in indices:
-            typ = self.data_group[index][7:]
-            if typ == 'bonafide':
+            typ = self.data_group[index][8:]
+            if typ == 'a00':
                 typ = 'bonafide'
             else:
                 typ = 'spoof'
-            spk = self.data_group[index][:6]
+            spk = self.data_group[index][:7]
             if not typ in data_dict:
                 data_dict[typ] = {}
             if not spk in data_dict[typ]:
@@ -320,3 +321,4 @@ class train_dataset_sampler(torch.utils.data.Sampler):
 
     def set_epoch(self, epoch: int) -> None:
         self.epoch = epoch
+

@@ -12,7 +12,7 @@ from torch.cuda.amp import autocast, GradScaler
 
 
 class WrappedModel(nn.Module):
-    
+
     def __init__(self, model):
         super(WrappedModel, self).__init__()
         self.module = model
@@ -33,9 +33,9 @@ class SASVNet(nn.Module):
 
     def forward(self, data, label=None):
         if label == None:
-            return self.__S__.forward(data.reshape(-1, data.size()[-1]).cuda(), aug=False) 
+            return self.__S__.forward(data.reshape(-1, data.size()[-1]).cuda(), aug=False)
         else:
-            data = data.reshape(-1, data.size()[-1]).cuda() 
+            data = data.reshape(-1, data.size()[-1]).cuda()
             outp = self.__S__.forward(data, aug=True)
             outp = outp.reshape(self.num_utt, -1, outp.size()[-1]).transpose(1,0).squeeze(1)
             nloss, prec1 = self.__L__.forward(outp, label)
@@ -43,7 +43,7 @@ class SASVNet(nn.Module):
 
 
 class ModelTrainer(object):
-    
+
     def __init__(self, speaker_model, optimizer, scheduler, **kwargs):
         self.__model__  = speaker_model
         Optimizer = importlib.import_module('optimizer.'+optimizer).__getattribute__('Optimizer')
@@ -51,7 +51,7 @@ class ModelTrainer(object):
         Scheduler = importlib.import_module('scheduler.'+scheduler).__getattribute__('Scheduler')
         self.__scheduler__, _ = Scheduler(self.__optimizer__, **kwargs)
 
-        self.scaler = GradScaler() 
+        self.scaler = GradScaler()
         self.gpu = 0
         self.ngpu = 1
         self.ndistfactor = int(kwargs.get('num_utt') * self.ngpu)
@@ -96,39 +96,15 @@ class ModelTrainer(object):
         rank = 0
         self.__model__.eval()
 
-        ## Enroll (speaker model) loader ##
-        spk_meta = {}
-        meta = np.loadtxt(kwargs["enroll_list"], str)
-        for i, spk in enumerate(meta[:,0]):
-            spk_meta[spk] = meta[i][1].split(',')
-
-        embeds_enr = {}
-        files = []
-        for idx1, spk in enumerate(spk_meta):
-            for file in spk_meta[spk]:
-                files += [file + '.flac']
-
-            test_dataset = test_dataset_loader(files, eval_path, eval_frames=eval_frames, num_eval=num_eval, **kwargs)
-            test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=num_thread, drop_last=False, sampler=None)
-            ref_embeds = []
-            for _, data in enumerate(test_loader):
-                inp1 = data[0][0].cuda()
-                with torch.no_grad():
-                    ref_embed = self.__model__(inp1).detach().cpu()
-                ref_embeds += [ref_embed]
-            embeds_enr[spk] = ref_embeds
-            # embeds_enr[spk] = torch.mean(torch.stack(ref_embeds), dim=0)
-            files = []
-            if rank == 0:
-                sys.stdout.write("\r Enrollment bona-fide speaker model: {:s}, {:d} of {:d}      ".format(spk, idx1, len(spk_meta.keys())))
-                sys.stdout.flush()
-        print('')
-
         ## Test loader ##
         tstart = time.time()
         with open(eval_list) as f:
             lines_eval = f.readlines()
-        files = [x.strip().split(' ')[1] + '.flac' for x in lines_eval]
+        files = []
+        for line in lines_eval:
+            utt1, utt2, label = line.strip().split(',')
+            files.append(utt1)
+            files.append(utt2)
         setfiles = list(set(files))
         setfiles.sort()
 
@@ -137,13 +113,14 @@ class ModelTrainer(object):
 
         ds = test_loader.__len__()
         gs = self.ngpu
-        
+
         embeds_tst = {}
         for idx, data in enumerate(test_loader):
             inp1 = data[0][0].cuda()
             with torch.no_grad():
                 ref_embed = self.__model__(inp1).detach().cpu()
-            embeds_tst[data[1][0][:-5]] = ref_embed
+            #embeds_tst[data[1][0][:-5]] = ref_embed
+            embeds_tst[data[1][0]] = ref_embed
             telapsed = time.time() - tstart
             if rank == 0:
                 sys.stdout.write("\r Reading {:d} of {:d}: {:.2f} Hz, embedding size {:d}      ".format(idx*gs, ds*gs, idx*gs/telapsed, ref_embed.size()[1]))
@@ -154,14 +131,11 @@ class ModelTrainer(object):
         if rank == 0:
             tstart = time.time()
             print('')
-            for key in embeds_enr.keys():
-                embeds_enr[key] = torch.mean(torch.stack(embeds_enr[key]), dim=0)
-
 
             ## Read files and compute all scores
             for idx, line in enumerate(lines_eval):
-                data = line.split()
-                enr = embeds_enr[data[0]].cuda()
+                data = line.strip().split(",")
+                enr = embeds_tst[data[0]].cuda()
                 tst = embeds_tst[data[1]].cuda()
                 if self.__model__.module.__L__.test_normalize:
                     enr = F.normalize(enr, p=2, dim=1)
@@ -200,3 +174,4 @@ class ModelTrainer(object):
                 print("Wrong parameter length: {}, model: {}, loaded: {}".format(origname, self_state[name].size(), loaded_state[origname].size()))
                 continue
             self_state[name].copy_(param)
+

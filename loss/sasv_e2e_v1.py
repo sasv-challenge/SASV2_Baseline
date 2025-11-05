@@ -18,12 +18,12 @@ class LossFunction(nn.Module):
     def forward(self, x, label=None):
         assert x.size()[1] == 2
         nlossS, prec = self.aamsoftmax(x.reshape(-1, x.size()[-1]), label.repeat_interleave(2))
-        
+
         idx_bna = torch.where(label != self.num_class-1)
         idx_spf = torch.where(label == self.num_class-1)
         x1 = x[idx_bna]
         x2 = x[idx_spf]
         x = torch.cat((x1, x2))
         nlossM, _ = self.angleproto_sasv(x, None, len(idx_bna[0]))
-        
+
         return nlossS + nlossM, prec

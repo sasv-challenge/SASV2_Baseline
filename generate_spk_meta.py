@@ -5,7 +5,7 @@ import pickle as pk
 from typing import List
 
 def main(args: List) -> None:
-    meta_file = args[0] # e.g., ASVspoof5.train.metadata.txt
+    meta_file = args[0] # e.g., spoofceleb/metadata/train.csv
     out_dir = args[1] #e.g., spk_meta/spk_meta_trn.pk
 
     with open(meta_file) as f:
@@ -17,18 +17,16 @@ def main(args: List) -> None:
     # element would be the utt_id
     out_dic = {}
     for samp in meta_lines:
-        spk, uttid, gender, codec, attack, spf = samp.strip().split(" ")
+        uttid, spk, spf = samp.strip().split(",")
         if spk not in out_dic:
             out_dic[spk] = {
                 "bonafide": [],
                 "spoof": [],
             }
-        if spf == "bonafide":
+        if spf == "a00":
             out_dic[spk]["bonafide"].append(uttid)
-        elif spf == "spoof":
-            out_dic[spk]["spoof"].append(uttid)
         else:
-            ValueError(f"unknown spoof type, got: {spf}")
+            out_dic[spk]["spoof"].append(uttid)
 
     with open(out_dir, "wb") as f_out:
         pk.dump(out_dic, f_out)
